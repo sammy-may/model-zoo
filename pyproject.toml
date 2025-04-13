@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "model-zoo"
+version = "0.1.0"
+description = ""
+authors = ["sammy-may <samuel.james.may1@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+numpy = "^2.2.4"
+torch = "^2.6.0"
+logging = "^0.4.9.6"
+rich = "^14.0.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+pytest-cov = "^6.1.1"
+black = "^25.1.0"
+isort = "^6.0.1"
+flake8 = "^7.2.0"
+pre-commit = "^4.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
