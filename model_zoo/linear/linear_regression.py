@@ -17,7 +17,7 @@ class LinearRegression:
         self.epochs = epochs
 
     def fit(self, X: npt.NDArray[np.float64], y: npt.NDArray[np.float64]):
-        self.N, self.p = X.shape
+        self.N, self.p = X.shape  # N instances, p features
 
         self.weights = np.zeros(self.p)
         self.bias = 0
