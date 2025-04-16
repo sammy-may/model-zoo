@@ -1,13 +1,24 @@
+import logging
+
 import numpy as np
 import numpy.typing as npt
 
-from model_zoo.utils import setup_logger
-
-logger = setup_logger()
+logger = logging.getLogger(__name__)
 
 
 class LinearRegression:
+    """
+    Simple implementation of unregularized linear regression using gradient descent.
+    """
+
     def __init__(self, lr: float = 0.01, epochs: int = 1000):
+        """
+        Initialize model.
+
+        Args:
+            lr (float): Learning rate for gradient descent. Defaults to 0.01.
+            epochs (int): Number of training iterations. Defaults to 1000.
+        """
         self.N = None
         self.p = None
         self.weights = None
@@ -17,6 +28,13 @@ class LinearRegression:
         self.epochs = epochs
 
     def fit(self, X: npt.NDArray[np.float64], y: npt.NDArray[np.float64]):
+        """
+        Train the model using gradient descent.
+
+        Args:
+            X (np.ndarray): Input feature matrix of shape (N, p).
+            y (np.ndarray): Target vector of shape (N,).
+        """
         self.N, self.p = X.shape  # N instances, p features
 
         self.weights = np.zeros(self.p)
@@ -34,4 +52,13 @@ class LinearRegression:
             self.bias = self.bias - self.lr * db
 
     def predict(self, X: npt.NDArray[np.float64]) -> npt.NDArray:
+        """
+        Predict target values using the learned linear model.
+
+        Args:
+            X (np.ndarray): Input feature matrix of shape (N, p).
+
+        Returns:
+            np.ndarray: Predicted target values of shape (N,).
+        """
         return np.dot(X, self.weights) + self.bias
