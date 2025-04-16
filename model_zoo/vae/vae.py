@@ -1,16 +1,24 @@
+import logging
+
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torchvision
 
-import matplotlib.pyplot as plt
+from model_zoo.vae.models import VAE, Decoder, Encoder
 
-from model_zoo.utils import setup_logger
-from model_zoo.vae.models import VAE, Encoder, Decoder
-
-logger = setup_logger()
+logger = logging.getLogger(__name__)
 
 
 class VAEHelper:
+    """
+    Helper class for training and evaluating a Variational AutoEncoder (VAE) on the MNIST dataset.
+
+    TODO:
+        - make dataset configurable
+        - provide options for using Vector Quantization and Finite Scalar Quantization
+    """
+
     def __init__(
         self,
         latent_dim: int,
@@ -18,12 +26,28 @@ class VAEHelper:
         n_epochs: int = 100,
         data_path: str = "data/",
     ):
+        """
+        Initialize the VAEHelper instance with configuration parameters.
+
+        Args:
+            latent_dim (int): Dimensionality of the latent space.
+            batch_size (int): Batch size for training and evaluation.
+            n_epochs (int, optional): Number of training epochs. Defaults to 100.
+            data_path (str, optional): Path to store or load MNIST data and outputs. Defaults to "data/".
+        """
         self.latent_dim = latent_dim
         self.batch_size = batch_size
         self.n_epochs = n_epochs
         self.data_path = data_path
 
     def load_data(self):
+        """
+        Load the MNIST dataset and initialize training and test data loaders.
+
+        Downloads the dataset to the specified path if not already present.
+        TODO:
+            - include options for data augmentation
+        """
         transform = torchvision.transforms.Compose(
             [
                 torchvision.transforms.ToTensor(),
@@ -52,13 +76,32 @@ class VAEHelper:
         logvar: torch.Tensor,
         beta: float,
     ) -> torch.Tensor:
+        """
+        Compute the Evidence Lower Bound (ELBO) loss.
+
+        Args:
+            x (torch.Tensor): Original input data.
+            x_reco (torch.Tensor): Reconstructed output from the decoder.
+            mean (torch.Tensor): Mean of the latent distribution.
+            logvar (torch.Tensor): Log variance of the latent distribution.
+            beta (float): Weight for the KL divergence term.
+
+        Returns:
+            torch.Tensor: The total ELBO loss.
+        """
         reco_term = nn.functional.binary_cross_entropy(x_reco, x, reduction="mean")
         kl_term = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp())
         return reco_term + beta * kl_term
 
     @staticmethod
     def print_image(x: torch.Tensor, filepath: str):
-        """Save image to a pdf file specified by `filepath`."""
+        """
+        Save a tensor image as a grayscale PDF file.
+
+        Args:
+            x (torch.Tensor): Image tensor to be saved.
+            filepath (str): File path where the image will be saved.
+        """
         fig, ax = plt.subplots()
         plt.imshow(x, cmap="gray")
         plt.axis("off")
@@ -66,28 +109,52 @@ class VAEHelper:
         plt.close()
 
     def train(self):
+        """
+        Train the VAE model using the loaded MNIST dataset.
+
+        The method performs training over a fixed number of epochs, logs the loss per epoch,
+        and saves images of original, reconstructed, and generated digits to PDF files at each epoch.
+        """
         model = VAE(Encoder(), Decoder())
         optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 
+        # Train for fixed number of epochs
         for epoch in range(self.n_epochs):
             loss_epoch = 0
+            loss_epoch_test = 0
+            beta = min(0.03 * (epoch + 1), 0.3)
+
+            # Iterate through training set
             model.train()
-            for X, y in self.train_loader:
+            for X, _ in self.train_loader:
                 optimizer.zero_grad()
                 X_reco, mean, logvar = model(X)
 
-                loss = self.elbo_loss(
-                    X, X_reco, mean, logvar, 0.1 if epoch == 0 else 0.3
-                )
+                loss = self.elbo_loss(X, X_reco, mean, logvar, beta)
                 loss_epoch += loss.item()
 
                 loss.backward()
                 optimizer.step()
 
+            # Iterate through testing set
             model.eval()
-            loss_epoch *= 1.0 / (len(self.train_loader))
-            print(epoch, loss_epoch)
+            with torch.no_grad():
+                for X, _ in self.test_loader:
+                    X_reco, mean, logvar = model(X)
 
+                    loss = self.elbo_loss(X, X_reco, mean, logvar, beta)
+                    loss_epoch_test += loss.item()
+
+            loss_epoch *= 1.0 / (len(self.train_loader))
+            loss_epoch_test *= 1.0 / (len(self.test_loader))
+            logger.info(
+                "Epoch {:d}: train/test loss: {:.4f}/{:.4f}".format(
+                    epoch, loss_epoch, loss_epoch_test
+                )
+            )
+
+            # Save images of original, reconstructed, and K generated from sampling in the latent space.
+            K = 3
             with torch.no_grad():
                 self.print_image(
                     X[-1, 0], self.data_path + "/vae_output/orig_{:d}.pdf".format(epoch)
@@ -96,7 +163,7 @@ class VAEHelper:
                     X_reco[-1, 0],
                     self.data_path + "/vae_output/reco_{:d}.pdf".format(epoch),
                 )
-                for i in range(3):
+                for i in range(K):
                     self.print_image(
                         model.generate()[0, 0],
                         self.data_path
