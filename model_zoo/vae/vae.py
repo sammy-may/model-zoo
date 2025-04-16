@@ -169,9 +169,3 @@ class VAEHelper:
                         self.data_path
                         + "/vae_output/gen_{:d}_{:d}.pdf".format(epoch, i),
                     )
-
-
-if __name__ == "__main__":
-    vae = VAEHelper(latent_dim=32, batch_size=64)
-    vae.load_data()
-    vae.train()
